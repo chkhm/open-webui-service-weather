@@ -112,7 +112,9 @@ Two pieces have to line up, and both are in this repository:
 
 2. **Compose registers the connection.** `docker-compose.yml` passes
    `TOOL_SERVER_CONNECTIONS` to Open WebUI, pointing at `http://weather-proxy:5005` with
-   path `openapi.json`.
+   path `openapi.json`. This is a supported feature, though it is absent from the
+   [environment variable reference](https://docs.openwebui.com/reference/env-configuration/)
+   — see [open-webui#15574](https://github.com/open-webui/open-webui/issues/15574).
 
 Open WebUI resolves those as: spec URL = connection URL + `path`, and the call URL =
 connection URL + the path key from the spec. The spec's own `servers` block is ignored.
@@ -128,11 +130,18 @@ make later through the interface.
 The `open-webui` image is pinned by digest in `docker-compose.yml`, not by the floating
 `:ollama` tag, so `docker compose pull` will not quietly move you to a new version.
 
-That is deliberate. The weather tool depends on three Open WebUI internals that carry no
-compatibility promise: the `TOOL_SERVER_CONNECTIONS` variable, the way tool-server URLs
-are resolved, and the `tool_server.connections` key in `webui.db`. A new release is free
-to change any of them, and the symptom would be the model quietly declining to look up
-the weather rather than an error.
+That is deliberate. The weather tool leans on three things Open WebUI does not promise to
+keep stable, and a change to any of them would show up as the model quietly declining to
+look up the weather rather than as an error:
+
+| Dependency | Status |
+|---|---|
+| `TOOL_SERVER_CONNECTIONS` | A supported feature, but undocumented, so unversioned in practice |
+| Tool-server URL resolution (spec = URL + `path`; call = URL + the spec's path key) | Internal behaviour, established by reading the source |
+| The `tool_server.connections` key in `webui.db` | Internal storage layout |
+
+The first is lower risk than the other two — it is intended to be used this way. The
+pin mainly buys protection against the second and third.
 
 The trade-off is that you no longer receive updates automatically, including security
 fixes. Upgrade on purpose instead:
@@ -187,7 +196,18 @@ docker exec open-webui curl -s -o /dev/null -w "%{http_code}\n" http://weather-p
 
 `200` is expected. A `404` usually means the stored connection points at
 `http://weather-proxy:5005/weather` instead of the root, which resolves the spec to
-`/weather/openapi.json`. Fix it in the admin UI's external tool server settings.
+`/weather/openapi.json`. Fix it under **Admin Panel > Settings > External Tools**.
+
+**The tool is configured but never offered in a chat.** If the spec check above passes
+and `./scripts/health-check.sh` is green, the connection is sound server-side and the
+chat window has not picked it up. Open **Admin Panel > Settings > External Tools**,
+verify the entry and save it; that writes the connection to the database and the tool
+appears. Older releases needed this every time the connection came from
+`TOOL_SERVER_CONNECTIONS` rather than the UI
+([open-webui#18140](https://github.com/open-webui/open-webui/issues/18140)). On the
+pinned version a fresh volume registers the tool server at startup without it —
+`Initialized 1 tool server(s)` in `docker compose logs open-webui` confirms that — so
+treat this as a fallback rather than a required step.
 
 **Forecasts fail for dates more than five days out.** That is the limit of the
 OpenWeather endpoint in use; the proxy returns 404 and the spec tells the model about

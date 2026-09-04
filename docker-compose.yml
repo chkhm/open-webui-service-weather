@@ -1,11 +1,11 @@
 services:
   open-webui:
-    # Pinned by digest rather than the floating :ollama tag. This project
-    # depends on Open WebUI internals -- the TOOL_SERVER_CONNECTIONS variable
-    # and how it resolves tool-server URLs -- which carry no compatibility
-    # promise, so an unattended image update could break the weather tool
-    # silently. This digest is the :ollama tag as of 2026-08-31 (v0.11.3), a
-    # multi-arch index covering linux/amd64 and linux/arm64.
+    # Pinned by digest rather than the floating :ollama tag. The weather tool
+    # depends on how Open WebUI resolves tool-server URLs and on the
+    # tool_server.connections key in webui.db, neither of which is documented,
+    # so an unattended image update could break it silently. This digest is the
+    # :ollama tag as of 2026-08-31 (v0.11.3), a multi-arch index covering
+    # linux/amd64 and linux/arm64.
     # To upgrade deliberately, see "Upgrading Open WebUI" in README.md.
     image: ghcr.io/open-webui/open-webui@sha256:d1f80a9554e4b7de87ded24a4d59558c4dc02453d1b1c83640b3f6039b0976f6
     container_name: "open-webui"
@@ -15,10 +15,12 @@ services:
       - open-webui:/app/backend/data
       - open-webui-ollama:/root/.ollama
     environment:
-      # Registers the weather proxy as an external OpenAPI tool server. This
-      # seeds a fresh volume; Open WebUI treats env values as defaults, so once
-      # the connection exists in webui.db (e.g. after editing it in the admin
-      # UI) the stored value takes precedence over this one.
+      # Registers the weather proxy as an external OpenAPI tool server. A
+      # supported feature, though missing from the environment variable
+      # reference (open-webui#15574). This seeds a fresh volume; Open WebUI
+      # treats env values as defaults, so once the connection exists in
+      # webui.db (e.g. after editing it in the admin UI) the stored value
+      # takes precedence over this one.
       - >-
         TOOL_SERVER_CONNECTIONS=[{"url": "http://weather-proxy:5005",
         "path": "openapi.json", "type": "openapi", "auth_type": "bearer",
