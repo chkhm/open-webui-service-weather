@@ -7,6 +7,19 @@ services:
     volumes:
       - open-webui:/app/backend/data
       - open-webui-ollama:/root/.ollama
+    environment:
+      # Registers the weather proxy as an external OpenAPI tool server. This
+      # seeds a fresh volume; Open WebUI treats env values as defaults, so once
+      # the connection exists in webui.db (e.g. after editing it in the admin
+      # UI) the stored value takes precedence over this one.
+      - >-
+        TOOL_SERVER_CONNECTIONS=[{"url": "http://weather-proxy:5005",
+        "path": "openapi.json", "type": "openapi", "auth_type": "bearer",
+        "headers": null, "key": "", "spec_type": "url", "spec": "",
+        "config": {"enable": true, "function_name_filter_list": "",
+        "access_grants": []},
+        "info": {"id": "", "name": "get_weather",
+        "description": "Retrieve short term weather forecast"}}]
     deploy:
       resources:
         reservations:
