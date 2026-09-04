@@ -78,8 +78,23 @@ Open WebUI is then at <http://localhost:12000>, or `http://<host>:12000` if you 
 on another machine. On first start it asks you to create an admin account; that account
 lives in the `open-webui` volume.
 
-Ask it something like *"What will the weather be this weekend in Princeton, NJ?"* — the
-model should call `get_weather` and answer from the returned forecast.
+## Enabling the tool in a chat
+
+Registering the tool server makes `get_weather` *available*; it does not switch it on.
+Open WebUI leaves external tools off until you enable them for a conversation, so a
+brand-new install will answer weather questions with something like *"I'm not able to
+pull real-time weather data"* even when everything below is configured correctly.
+
+Click the **wrench** icon under the message box and toggle `get_weather` on:
+
+![Enabling the get_weather tool from the wrench menu in the chat input](docs/enable-weather-tool.png)
+
+The wrench then shows a count of active tools. Now ask something like *"What will the
+weather be this weekend in Princeton, NJ?"* and the model will call `get_weather` and
+answer from the returned forecast.
+
+This is per conversation. To have it on by default, create an entry for your model under
+**Workspace > Models** and attach the tool there.
 
 ## Convenience scripts
 
@@ -253,16 +268,19 @@ docker exec open-webui curl -s -o /dev/null -w "%{http_code}\n" http://weather-p
 `http://weather-proxy:5005/weather` instead of the root, which resolves the spec to
 `/weather/openapi.json`. Fix it under **Admin Panel > Settings > External Tools**.
 
-**The tool is configured but never offered in a chat.** If the spec check above passes
-and `./scripts/health-check.sh` is green, the connection is sound server-side and the
-chat window has not picked it up. Open **Admin Panel > Settings > External Tools**,
-verify the entry and save it; that writes the connection to the database and the tool
-appears. Older releases needed this every time the connection came from
-`TOOL_SERVER_CONNECTIONS` rather than the UI
-([open-webui#18140](https://github.com/open-webui/open-webui/issues/18140)). On the
-pinned version a fresh volume registers the tool server at startup without it —
-`Initialized 1 tool server(s)` in `docker compose logs open-webui` confirms that — so
-treat this as a fallback rather than a required step.
+**The model says it cannot pull weather data, but the health check is green.** This is
+the normal state of a fresh install, not a fault: the tool is registered but not enabled
+for the conversation. Switch it on with the wrench icon — see
+[Enabling the tool in a chat](#enabling-the-tool-in-a-chat).
+
+**The tool is not listed under the wrench at all.** Then the chat window has not picked
+up the connection. Open **Admin Panel > Settings > External Tools**, verify the entry and
+save it; that writes the connection to the database and the tool appears. Older releases
+needed this every time the connection came from `TOOL_SERVER_CONNECTIONS` rather than the
+UI ([open-webui#18140](https://github.com/open-webui/open-webui/issues/18140)). On the
+pinned version a fresh volume registers the tool server at startup — `Initialized 1 tool
+server(s)` in `docker compose logs open-webui` confirms that — so treat this as a
+fallback rather than a required step.
 
 **Forecasts fail for dates more than five days out.** That is the limit of the
 OpenWeather endpoint in use; the proxy returns 404 and the spec tells the model about
