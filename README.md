@@ -123,6 +123,48 @@ this variable seeded it, or because you edited it in the admin UI — the stored
 wins. The variable therefore sets up a fresh volume without ever overwriting changes you
 make later through the interface.
 
+## Upgrading Open WebUI
+
+The `open-webui` image is pinned by digest in `docker-compose.yml`, not by the floating
+`:ollama` tag, so `docker compose pull` will not quietly move you to a new version.
+
+That is deliberate. The weather tool depends on three Open WebUI internals that carry no
+compatibility promise: the `TOOL_SERVER_CONNECTIONS` variable, the way tool-server URLs
+are resolved, and the `tool_server.connections` key in `webui.db`. A new release is free
+to change any of them, and the symptom would be the model quietly declining to look up
+the weather rather than an error.
+
+The trade-off is that you no longer receive updates automatically, including security
+fixes. Upgrade on purpose instead:
+
+1. Find the digest you want. For the current `:ollama` tag:
+
+   ```bash
+   docker buildx imagetools inspect ghcr.io/open-webui/open-webui:ollama | head -3
+   ```
+
+2. Note the digest you are on now, so you can go back — it is the `image:` line in
+   `docker-compose.yml`.
+
+3. Replace the digest there, then restart:
+
+   ```bash
+   docker compose up -d
+   ```
+
+4. Verify before trusting it:
+
+   ```bash
+   ./scripts/health-check.sh
+   ```
+
+   A non-zero exit means the upgrade broke something. Put the old digest back and run
+   `docker compose up -d` again; your data is in volumes and is unaffected by either
+   step.
+
+Pinning by digest works across architectures — the digest refers to a multi-arch index,
+so the same line is correct on amd64 and arm64.
+
 ## Volumes
 
 | Volume | Contents | Lost if deleted |
