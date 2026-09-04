@@ -85,6 +85,113 @@ def weather():
     # Return a compact structure – OpenWebUI will just forward this JSON
     return jsonify({"city": city, "state": state, "forecast": result})
 
+# --------------------------------------------------------------
+# OpenAPI 3.1 description of this service.
+#
+# OpenWebUI registers this process as an "External Tool Server" and
+# fetches the document below from <connection-url>/openapi.json. It
+# derives the tool name from `operationId` and calls
+# <connection-url> + <path key>, i.e. http://weather-proxy:5005/weather.
+# The `servers` block is not used for that, so schemas are inlined
+# here to keep the document self-contained.
+# --------------------------------------------------------------
+OPENAPI_SPEC = {
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Weather Proxy",
+        "description": "Short-term weather forecasts for US cities, backed by OpenWeather.",
+        "version": "1.0.0",
+    },
+    "servers": [{"url": "http://weather-proxy:5005"}],
+    "paths": {
+        "/weather": {
+            "post": {
+                "operationId": "get_weather",
+                "summary": "Get a short-term weather forecast for a US city",
+                "description": (
+                    "Retrieve a short-term weather forecast for a US city "
+                    "(city, state, optional date). Returns forecast entries in "
+                    "3-hour steps with temperature in Fahrenheit and the "
+                    "probability of precipitation in percent. Data is only "
+                    "available for roughly the next 5 days; a date outside that "
+                    "window returns no data."
+                ),
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "city": {
+                                        "type": "string",
+                                        "description": "Name of the city (e.g., Princeton)",
+                                    },
+                                    "state": {
+                                        "type": "string",
+                                        "description": "Two-letter US state abbreviation (e.g., NJ)",
+                                    },
+                                    "date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "description": (
+                                            "ISO-8601 date to filter the forecast to, e.g. "
+                                            "2026-09-07. Must fall within the next 5 days. "
+                                            "If omitted, the full available forecast "
+                                            "(about 5 days) is returned."
+                                        ),
+                                    },
+                                },
+                                "required": ["city", "state"],
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "Forecast for the requested city",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "city": {"type": "string"},
+                                        "state": {"type": "string"},
+                                        "forecast": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "datetime": {"type": "string"},
+                                                    "temp": {"type": "number"},
+                                                    "temp_min": {"type": "number"},
+                                                    "temp_max": {"type": "number"},
+                                                    "description": {"type": "string"},
+                                                    "precip_prob": {"type": "number"},
+                                                },
+                                                "required": ["datetime", "temp", "description"],
+                                            },
+                                        },
+                                    },
+                                    "required": ["city", "state", "forecast"],
+                                }
+                            }
+                        },
+                    },
+                    "400": {"description": "Missing parameters or unresolvable location"},
+                    "404": {"description": "No forecast data for the requested date"},
+                },
+            }
+        }
+    },
+}
+
+
+@app.route("/openapi.json", methods=["GET"])
+def openapi_spec():
+    return jsonify(OPENAPI_SPEC)
+
+
 if __name__ == "__main__":
     # Bind to all interfaces so Docker can reach it
     app.run(host="0.0.0.0", port=5005)

@@ -16,7 +16,7 @@ services:
               capabilities: [gpu]
     depends_on:
       - weather-proxy
-  
+
   weather-proxy:
     build: ./weather-proxy   # directory that holds the Dockerfile from §3.2
     container_name: weather-proxy
@@ -36,6 +36,9 @@ networks:
     driver: bridge
 
 volumes:
+  # Pinned to the plain volume names (no compose project prefix) so the stack
+  # keeps using the existing open-webui data instead of a fresh empty volume.
   open-webui:
+    name: open-webui
   open-webui-ollama:
-
+    name: open-webui-ollama
