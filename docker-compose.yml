@@ -1,0 +1,41 @@
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:ollama
+    container_name: "open-webui"
+    ports:
+      - "12000:8080"
+    volumes:
+      - open-webui:/app/backend/data
+      - open-webui-ollama:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    depends_on:
+      - weather-proxy
+  
+  weather-proxy:
+    build: ./weather-proxy   # directory that holds the Dockerfile from §3.2
+    container_name: weather-proxy
+    restart: unless-stopped
+    environment:
+      - OWM_API_KEY=${OWM_API_KEY}   # we’ll pass it from host env
+    expose:
+      - "5005"
+    # Give it a stable DNS name for the other service
+    networks:
+      default:
+        aliases:
+          - weather-proxy
+
+networks:
+  default:
+    driver: bridge
+
+volumes:
+  open-webui:
+  open-webui-ollama:
+
