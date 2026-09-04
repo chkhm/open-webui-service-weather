@@ -10,25 +10,32 @@ It describes itself with an OpenAPI document, which Open WebUI registers as an
 **external tool server** — that is the mechanism that makes `get_weather` available
 to the model.
 
+Ollama runs as its own service rather than bundled into the Open WebUI image, so the
+two can be pinned and upgraded independently.
+
 ```
   browser :12000
         |
    +----v----------------+       GET /openapi.json      +------------------+
    |     open-webui      |----------------------------->|                  |
-   |  (+ bundled Ollama) |                              |  weather-proxy   |
+   |                     |                              |  weather-proxy   |
    |                     |  POST /weather {city,state}  |    (Flask)       |
    |                     |----------------------------->|                  |
-   +---------------------+                              +---------+--------+
-                                                                  |
-                                                                  v
-                                                          OpenWeather API
+   +----------+----------+                              +---------+--------+
+              |                                                   |
+              | OLLAMA_BASE_URL                                   v
+              | http://ollama:11434                       OpenWeather API
+   +----------v----------+
+   |       ollama        |  <- holds the GPU and the model store
+   +---------------------+
 ```
 
 ## Requirements
 
 - Docker with Compose v2
 - An NVIDIA GPU plus the NVIDIA Container Toolkit — `docker-compose.yml` reserves all
-  GPUs for the `open-webui` service. Remove that `deploy:` block to run CPU-only.
+  GPUs for the `ollama` service, which is what actually runs the model. Remove that
+  `deploy:` block to run CPU-only.
 - An OpenWeather API key (below)
 
 ## Getting an OpenWeather API key
@@ -80,7 +87,7 @@ model should call `get_weather` and answer from the returned forecast.
 |---|---|
 | `scripts/remove-containers.sh` | Removes the containers and network. Keeps all volumes, so nothing is lost. Equivalent to `docker compose down`, with a summary of what was preserved. |
 | `scripts/remove-volumes.sh` | **Destroys data.** Deletes the Open WebUI data volume after a typed confirmation. Pass `--with-models` to also delete the Ollama volume. Refuses to run while containers are up. |
-| `scripts/health-check.sh` | Verifies the whole chain: containers, API key, OpenAPI spec, stored connection, tool resolution, and a live forecast. Exits non-zero if anything is broken. |
+| `scripts/health-check.sh` | Verifies the whole chain: containers, model server reachability and available models, API key, OpenAPI spec, stored connection, tool resolution, and a live forecast. Exits non-zero if anything is broken. |
 
 The model volume is excluded by default because it is large — on the development
 machine it holds ~61 GB, and everything in it has to be downloaded again.
@@ -94,9 +101,13 @@ Run the health check after any change to confirm the tool still works end to end
 ```
 1. containers
   [ ok ] open-webui is running
+  [ ok ] ollama is running
   [ ok ] weather-proxy is running
+2. model server
+  [ ok ] open-webui can reach ollama (version 0.32.15)
+  [ ok ] models available: gpt-oss:120b
 ...
-6. live forecast
+7. live forecast
   [ ok ] live call returned 40 forecast entries for Princeton, NJ
 
 all checks passed
@@ -125,12 +136,16 @@ this variable seeded it, or because you edited it in the admin UI — the stored
 wins. The variable therefore sets up a fresh volume without ever overwriting changes you
 make later through the interface.
 
-## Upgrading Open WebUI
+## Upgrading
 
-The `open-webui` image is pinned by digest in `docker-compose.yml`, not by the floating
-`:ollama` tag, so `docker compose pull` will not quietly move you to a new version.
+Both `open-webui` and `ollama` are pinned by digest in `docker-compose.yml`, so
+`docker compose pull` will not quietly move you to a new version of either.
 
-That is deliberate. The weather tool leans on three things Open WebUI does not promise to
+Running Ollama as a separate service is what makes the two upgrades independent. With
+the bundled `:ollama` image they shipped as one unit, so taking an Ollama fix meant
+accepting a new Open WebUI as well, and vice versa.
+
+Pinning Open WebUI is deliberate. The weather tool leans on three things Open WebUI does not promise to
 keep stable, and a change to any of them would show up as the model quietly declining to
 look up the weather rather than as an error:
 
@@ -146,11 +161,17 @@ pin mainly buys protection against the second and third.
 The trade-off is that you no longer receive updates automatically, including security
 fixes. Upgrade on purpose instead:
 
-1. Find the digest you want. For the current `:ollama` tag:
+1. Find the digest you want, for whichever image you are moving:
 
    ```bash
-   docker buildx imagetools inspect ghcr.io/open-webui/open-webui:ollama | head -3
+   docker buildx imagetools inspect ghcr.io/open-webui/open-webui:v0.11.3 | head -3
    ```
+
+   ```bash
+   docker buildx imagetools inspect ollama/ollama:0.32.15 | head -3
+   ```
+
+   Upgrade one at a time, so a failure tells you which one caused it.
 
 2. Note the digest you are on now, so you can go back — it is the `image:` line in
    `docker-compose.yml`.
@@ -171,15 +192,19 @@ fixes. Upgrade on purpose instead:
    `docker compose up -d` again; your data is in volumes and is unaffected by either
    step.
 
-Pinning by digest works across architectures — the digest refers to a multi-arch index,
-so the same line is correct on amd64 and arm64.
+Pinning by digest works across architectures — both digests refer to multi-arch indexes,
+so the same lines are correct on amd64 and arm64.
+
+The Open WebUI image is the plain `v0.11.3`, not the `:ollama` variant. Switching back to
+the bundled image means removing the `ollama` service, moving the `deploy:` GPU block and
+the `open-webui-ollama` volume back onto `open-webui`, and dropping `OLLAMA_BASE_URL`.
 
 ## Volumes
 
 | Volume | Contents | Lost if deleted |
 |---|---|---|
-| `open-webui` | `webui.db`, uploads, vector store | Admin account, chat history, settings. The tool-server connection is reseeded from `TOOL_SERVER_CONNECTIONS` on next start. |
-| `open-webui-ollama` | Downloaded models | Every model, re-downloaded on next pull |
+| `open-webui` | `webui.db`, uploads, vector store — mounted by the `open-webui` service | Admin account, chat history, settings. The tool-server connection is reseeded from `TOOL_SERVER_CONNECTIONS` on next start. |
+| `open-webui-ollama` | Downloaded models — mounted by the `ollama` service at `/root/.ollama` | Every model, re-downloaded on next pull |
 
 Both are pinned to those exact names in `docker-compose.yml`. Without the pin, Compose
 prefixes volume names with the project directory name, and the stack silently comes up

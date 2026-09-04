@@ -19,7 +19,7 @@ fail() { printf '  [FAIL] %s\n' "$1"; failures=$((failures + 1)); }
 note() { printf '         %s\n' "$1"; }
 
 echo "1. containers"
-for c in open-webui weather-proxy; do
+for c in open-webui ollama weather-proxy; do
     if [ "$(docker inspect -f '{{.State.Running}}' "$c" 2>/dev/null)" = "true" ]; then
         ok "$c is running"
     else
@@ -33,7 +33,24 @@ if [ "$failures" -ne 0 ]; then
     exit 1
 fi
 
-echo "2. OpenWeather credentials"
+echo "2. model server"
+ver=$(docker exec open-webui curl -s --max-time 10 http://ollama:11434/api/version 2>/dev/null \
+      | docker exec -i open-webui python3 -c 'import sys,json; print(json.load(sys.stdin)["version"])' 2>/dev/null || true)
+if [ -n "$ver" ]; then
+    ok "open-webui can reach ollama (version $ver)"
+    models=$(docker exec ollama ollama list 2>/dev/null | tail -n +2 | awk '{print $1}' | paste -sd, -)
+    if [ -n "$models" ]; then
+        ok "models available: $models"
+    else
+        fail "ollama is reachable but has no models"
+        note "pull one with: docker exec ollama ollama pull <model>"
+    fi
+else
+    fail "open-webui cannot reach ollama at http://ollama:11434"
+    note "check OLLAMA_BASE_URL and that the ollama service is on the same network"
+fi
+
+echo "3. OpenWeather credentials"
 key=$(docker exec weather-proxy printenv OWM_API_KEY 2>/dev/null || true)
 if [ -n "$key" ]; then
     ok "OWM_API_KEY is set in weather-proxy (${#key} characters)"
@@ -42,7 +59,7 @@ else
     note "check .env in the repository root, then: docker compose up -d"
 fi
 
-echo "3. OpenAPI spec"
+echo "4. OpenAPI spec"
 code=$(docker exec open-webui curl -s -o /tmp/spec.json -w '%{http_code}' \
        http://weather-proxy:5005/openapi.json 2>/dev/null || true)
 if [ "$code" = "200" ]; then
@@ -59,7 +76,7 @@ else
     note "the proxy must serve an OpenAPI document for the tool to register"
 fi
 
-echo "4. stored tool-server connection"
+echo "5. stored tool-server connection"
 url=$(docker exec open-webui python3 -c "
 import sqlite3, json
 c = sqlite3.connect('/app/backend/data/webui.db')
@@ -81,7 +98,7 @@ else
     ok "connection points at $url"
 fi
 
-echo "5. Open WebUI resolves the tool"
+echo "6. Open WebUI resolves the tool"
 resolved=$(docker exec -e PYTHONPATH=/app/backend -e WEBUI_SECRET_KEY=health-check -i open-webui python - <<'PY' 2>/dev/null
 import asyncio, json, sqlite3
 from open_webui.utils.tools import get_tool_servers_data
@@ -106,7 +123,7 @@ else
     note "the connection exists but its spec could not be fetched or parsed"
 fi
 
-echo "6. live forecast"
+echo "7. live forecast"
 entries=$(docker exec open-webui sh -c \
     "curl -s -X POST http://weather-proxy:5005/weather -H 'Content-Type: application/json' -d '{\"city\":\"Princeton\",\"state\":\"NJ\"}'" 2>/dev/null \
     | docker exec -i open-webui python3 -c "
