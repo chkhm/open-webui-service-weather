@@ -210,6 +210,36 @@ Both are pinned to those exact names in `docker-compose.yml`. Without the pin, C
 prefixes volume names with the project directory name, and the stack silently comes up
 against an empty volume with none of your data in it.
 
+## License and attribution
+
+This project is released under the [MIT License](LICENSE) — the Compose file, the
+scripts, the README and the Flask proxy in `weather-proxy/`.
+
+It does not redistribute any of the software it orchestrates. Open WebUI and Ollama are
+pulled as published container images at runtime, and Flask and requests are installed
+into the proxy image when you build it. Their licences therefore apply to those
+components, not to this repository:
+
+| Component | Licence |
+|---|---|
+| [Open WebUI](https://github.com/open-webui/open-webui/blob/main/LICENSE) | Open WebUI License — BSD-3-derived, with a clause restricting removal of "Open WebUI" branding above 50 users in a rolling 30-day period |
+| [Ollama](https://github.com/ollama/ollama/blob/main/LICENSE) | MIT |
+| Flask / requests | BSD-3-Clause / Apache-2.0 |
+
+If you ever publish a *built* image rather than source, the terms of whatever is inside
+it apply to that image — including Open WebUI's attribution and branding clauses. This
+repository distributes source only.
+
+### Weather data
+
+**Weather data provided by [OpenWeather](https://openweathermap.org).**
+
+OpenWeather's self-service data is made available under the
+[Open Database License (ODbL)](https://openweathermap.org/price) and requires
+attribution. The proxy returns that data essentially verbatim, so anything you build on
+top of it should carry the same credit; the OpenAPI document the proxy serves states it
+in its `info` block.
+
 ## Troubleshooting
 
 **The model says it cannot look up weather.** The tool server did not load. Check the

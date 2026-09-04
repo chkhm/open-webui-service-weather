@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Christoph Kuhmuench
 #
 # Delete this project's Docker volumes. THIS DESTROYS DATA.
 #
@@ -21,7 +23,10 @@ with_models=false
 case "${1:-}" in
     "")             ;;
     --with-models)  with_models=true ;;
-    -h|--help)      sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)      awk 'NR==1 && /^#!/ {next}
+                         /^#/ {sub(/^# ?/, "");
+                               if ($0 !~ /^(SPDX-|Copyright )/) print; next}
+                         {exit}' "$0"; exit 0 ;;
     *)              echo "unknown argument: $1 (try --help)" >&2; exit 2 ;;
 esac
 

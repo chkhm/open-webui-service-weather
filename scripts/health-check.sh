@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Christoph Kuhmuench
 #
 # Verify the whole weather-tool chain, from containers up to a live forecast.
 #

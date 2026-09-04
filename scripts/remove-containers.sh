@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Christoph Kuhmuench
 #
 # Stop and remove this project's containers and its network.
 # Volumes are left alone, so your Open WebUI account, chat history, tool

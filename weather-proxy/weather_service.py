@@ -1,4 +1,5 @@
-# weather_service.py
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Christoph Kuhmuench
 import os
 import requests
 from flask import Flask, request, jsonify
@@ -99,8 +100,13 @@ OPENAPI_SPEC = {
     "openapi": "3.1.0",
     "info": {
         "title": "Weather Proxy",
-        "description": "Short-term weather forecasts for US cities, backed by OpenWeather.",
+        "description": (
+            "Short-term weather forecasts for US cities. "
+            "Weather data provided by OpenWeather (https://openweathermap.org), "
+            "licensed under the Open Database License (ODbL)."
+        ),
         "version": "1.0.0",
+        "license": {"name": "MIT"},
     },
     "servers": [{"url": "http://weather-proxy:5005"}],
     "paths": {

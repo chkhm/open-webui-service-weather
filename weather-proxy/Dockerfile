@@ -1,4 +1,5 @@
-# Dockerfile
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Christoph Kuhmuench
 FROM python:3.11-slim
 
 WORKDIR /app
