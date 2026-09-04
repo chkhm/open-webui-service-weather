@@ -80,9 +80,27 @@ model should call `get_weather` and answer from the returned forecast.
 |---|---|
 | `scripts/remove-containers.sh` | Removes the containers and network. Keeps all volumes, so nothing is lost. Equivalent to `docker compose down`, with a summary of what was preserved. |
 | `scripts/remove-volumes.sh` | **Destroys data.** Deletes the Open WebUI data volume after a typed confirmation. Pass `--with-models` to also delete the Ollama volume. Refuses to run while containers are up. |
+| `scripts/health-check.sh` | Verifies the whole chain: containers, API key, OpenAPI spec, stored connection, tool resolution, and a live forecast. Exits non-zero if anything is broken. |
 
 The model volume is excluded by default because it is large — on the development
 machine it holds ~61 GB, and everything in it has to be downloaded again.
+
+Run the health check after any change to confirm the tool still works end to end:
+
+```bash
+./scripts/health-check.sh
+```
+
+```
+1. containers
+  [ ok ] open-webui is running
+  [ ok ] weather-proxy is running
+...
+6. live forecast
+  [ ok ] live call returned 40 forecast entries for Princeton, NJ
+
+all checks passed
+```
 
 ## How the weather tool is wired up
 
