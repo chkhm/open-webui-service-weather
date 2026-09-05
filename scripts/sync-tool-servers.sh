@@ -24,6 +24,15 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Everything below talks to Docker. Say so plainly if the daemon is not here,
+# instead of reporting healthy containers as "not running".
+if ! docker info >/dev/null 2>&1; then
+    echo "cannot reach the Docker daemon on $(hostname)" >&2
+    echo "run this on the machine hosting the stack, e.g.:" >&2
+    echo "  ssh spark01 'cd ~/git/open-webui-service-weather && ./scripts/sync-tool-servers.sh'" >&2
+    exit 1
+fi
+
 dry_run=false
 case "${1:-}" in
     "")         ;;

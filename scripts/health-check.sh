@@ -18,6 +18,15 @@ set -uo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Everything below talks to Docker. Say so plainly if the daemon is not here,
+# instead of reporting healthy containers as "not running".
+if ! docker info >/dev/null 2>&1; then
+    echo "cannot reach the Docker daemon on $(hostname)" >&2
+    echo "run this on the machine hosting the stack, e.g.:" >&2
+    echo "  ssh spark01 'cd ~/git/open-webui-service-weather && ./scripts/health-check.sh'" >&2
+    exit 1
+fi
+
 # Containers that must be running. Add each new tool service here.
 CONTAINERS=(open-webui ollama weather-proxy currency-proxy)
 
