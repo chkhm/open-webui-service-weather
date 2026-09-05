@@ -1,0 +1,140 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Christoph Kuhmuench
+#
+# __NAME__-proxy: makes __UPSTREAM_NAME__ available to Open WebUI as the tool
+# `__OPERATION_ID__`. Serves an OpenAPI document at /openapi.json that Open WebUI
+# registers as an external tool server; see README.md, "How the tools are wired up".
+import os
+import requests
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+UPSTREAM = "__UPSTREAM_BASE_URL__"
+PORT = __PORT__
+
+
+def _error(status, message):
+    return jsonify({"error": message}), status
+
+
+# --------------------------------------------------------------
+# Tool endpoint. Open WebUI sends every argument the model produced as
+# the JSON body, so the body is exactly the parameter list in the
+# OpenAPI document below. Coerce and normalise here: models pass numbers
+# as strings and codes in lower case.
+# --------------------------------------------------------------
+@app.route("__ENDPOINT__", methods=["POST"])
+def __OPERATION_ID__():
+    payload = request.get_json(force=True, silent=True) or {}
+
+    # --- parameters ------------------------------------------------
+    # TODO: read, validate and normalise each parameter. Example:
+    # amount = payload.get("amount")
+    # try:
+    #     amount = float(amount)
+    # except (TypeError, ValueError):
+    #     return _error(400, "amount must be a number")
+
+    # --- upstream call ---------------------------------------------
+    # TODO: call the upstream API. Keep the timeout and the exception
+    # handling; the model only sees the text of the error you return.
+    try:
+        r = requests.get(
+            f"{UPSTREAM}/TODO",
+            params={},  # TODO
+            timeout=10,
+        )
+    except requests.RequestException as e:
+        return _error(502, f"__UPSTREAM_NAME__ is unreachable: {e}")
+
+    if r.status_code == 404:
+        return _error(400, "TODO: say what was not found and where valid values come from")
+    if r.status_code >= 400:
+        return _error(502, f"__UPSTREAM_NAME__ returned {r.status_code}")
+
+    data = r.json()
+
+    # --- response ----------------------------------------------------
+    # TODO: reshape into a compact object with plainly named fields the
+    # model needs to answer. Include a date/source field when freshness
+    # or provenance matters. Do not forward the upstream response raw.
+    return jsonify({
+        # "field": data["..."],
+    })
+
+
+# --------------------------------------------------------------
+# OpenAPI 3.1 document. Open WebUI fetches <connection url>/openapi.json,
+# names the tool after `operationId`, and calls <connection url> + the
+# path key ("__ENDPOINT__"). The `servers` block is informational only.
+#
+# Two descriptions, two audiences:
+#   - the OPERATION description is what the model reads to decide whether
+#     and how to call the tool: purpose, parameter hints, practical limits.
+#     No licence text.
+#   - info.description carries the data attribution the upstream requires.
+# --------------------------------------------------------------
+OPENAPI_SPEC = {
+    "openapi": "3.1.0",
+    "info": {
+        "title": "__TITLE__",
+        "description": "__INFO_DESCRIPTION__",
+        "version": "1.0.0",
+        "license": {"name": "MIT"},
+    },
+    "servers": [{"url": f"http://__NAME__-proxy:{PORT}"}],
+    "paths": {
+        "__ENDPOINT__": {
+            "post": {
+                "operationId": "__OPERATION_ID__",
+                "summary": "__OPERATION_SUMMARY__",
+                "description": (
+                    "__OPERATION_DESCRIPTION__"
+                ),
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    # TODO: one entry per parameter, each with a description
+                                    # "amount": {"type": "number", "description": "Amount to convert, e.g. 100"},
+                                },
+                                "required": [],  # TODO
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "TODO",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        # TODO: mirror the object returned above
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "400": {"description": "Missing or invalid parameter"},
+                    "502": {"description": "Upstream unavailable"},
+                },
+            }
+        }
+    },
+}
+
+
+@app.route("/openapi.json", methods=["GET"])
+def openapi_spec():
+    return jsonify(OPENAPI_SPEC)
+
+
+if __name__ == "__main__":
+    # Bind to all interfaces so the other containers can reach it
+    app.run(host="0.0.0.0", port=PORT)

@@ -1,0 +1,49 @@
+# Paste this function into scripts/health-check.sh directly after
+# check_weather_proxy, then:
+#   1. call it in the main flow, after the `check_weather_proxy` line
+#   2. add __OPERATION_ID__ to the `check_resolved` call
+# The helper script has already added the container to CONTAINERS.
+#
+# Replace every __TOKEN__. Delete the credentials section if there is no secret.
+
+check___NAME___proxy() {
+    # --- credentials (delete this section if the upstream is keyless) ---
+    section "__NAME__-proxy: __UPSTREAM_NAME__ credentials"
+    local key
+    key=$(docker exec __NAME__-proxy printenv __SECRET_VAR__ 2>/dev/null || true)
+    if [ -n "$key" ]; then
+        ok "__SECRET_VAR__ is set in __NAME__-proxy (${#key} characters)"
+    else
+        fail "__SECRET_VAR__ is empty or unset in __NAME__-proxy"
+        note "check .env in the repository root, then: docker compose up -d"
+    fi
+
+    section "__NAME__-proxy: OpenAPI spec"
+    check_spec __NAME__-proxy __PORT__ __ENDPOINT__ post
+
+    section "__NAME__-proxy: stored connection"
+    check_connection http://__NAME__-proxy:__PORT__
+
+    # --- live call: one known-good request, assert one specific field ---
+    section "__NAME__-proxy: live __WHAT__"
+    local result
+    result=$(docker exec open-webui sh -c \
+        "curl -s -X POST http://__NAME__-proxy:__PORT____ENDPOINT__ -H 'Content-Type: application/json' -d '__EXAMPLE_BODY_JSON__'" 2>/dev/null \
+        | docker exec -i open-webui python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    if 'error' in d:
+        print('ERROR:' + str(d['error'])[:80])
+    else:
+        print(d['__RESULT_FIELD__'])      # a value the case below can recognise
+except Exception:
+    print('ERROR:unparseable response')
+" 2>/dev/null || true)
+    case "$result" in
+        ERROR:*) fail "live call failed: ${result#ERROR:}"
+                 note "__HINT_FOR_THE_MOST_LIKELY_CAUSE__" ;;
+        '')      fail "live call returned no usable result" ;;
+        *)       ok "live call: __EXAMPLE_SUMMARY__ -> ${result}" ;;
+    esac
+}

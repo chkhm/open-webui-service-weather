@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Christoph Kuhmuench
+FROM python:3.11-slim
+
+WORKDIR /app
+COPY __NAME___service.py /app/
+RUN pip install --no-cache-dir flask requests
+
+# Only if the upstream needs a key. The value comes from .env via compose.
+# ENV __SECRET_VAR__=${__SECRET_VAR__}
+EXPOSE __PORT__
+
+CMD ["python", "__NAME___service.py"]
