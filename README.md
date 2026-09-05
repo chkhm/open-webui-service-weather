@@ -103,6 +103,8 @@ This is per conversation. To have it on by default, create an entry for your mod
 | `scripts/remove-containers.sh` | Removes the containers and network. Keeps all volumes, so nothing is lost. Equivalent to `docker compose down`, with a summary of what was preserved. |
 | `scripts/remove-volumes.sh` | **Destroys data.** Deletes the Open WebUI data volume after a typed confirmation. Pass `--with-models` to also delete the Ollama volume. Refuses to run while containers are up. |
 | `scripts/health-check.sh` | Verifies the whole chain: containers, model server reachability and available models, API key, OpenAPI spec, stored connection, tool resolution, and a live forecast. Exits non-zero if anything is broken. |
+| `scripts/sync-tool-servers.sh` | Appends any tool-server connection declared in `docker-compose.yml` that is not yet stored in Open WebUI's database, then restarts `open-webui`. Needed when adding a service to an existing install, because the stored connections win over the environment variable. `--dry-run` shows what would be added. |
+| `scripts/e2e-tool-call.sh` | Asks the real model a question with every registered tool on offer, executes the calls it makes, and reports them. `--expect <tool>` makes it fail unless that tool was called. Proves the model + spec + service chain end to end, short of the chat window itself. |
 
 The model volume is excluded by default because it is large — on the development
 machine it holds ~61 GB, and everything in it has to be downloaded again.
@@ -121,9 +123,13 @@ Run the health check after any change to confirm the tool still works end to end
 2. model server
   [ ok ] open-webui can reach ollama (version 0.32.15)
   [ ok ] models available: gpt-oss:120b
+3. weather-proxy: OpenWeather credentials
+  [ ok ] OWM_API_KEY is set in weather-proxy (32 characters)
 ...
-7. live forecast
+6. weather-proxy: live forecast
   [ ok ] live call returned 40 forecast entries for Princeton, NJ
+7. Open WebUI resolves the tools
+  [ ok ] tools available to the model: get_weather
 
 all checks passed
 ```
@@ -150,6 +156,11 @@ Environment values are defaults. Once a connection is stored in the database —
 this variable seeded it, or because you edited it in the admin UI — the stored value
 wins. The variable therefore sets up a fresh volume without ever overwriting changes you
 make later through the interface.
+
+The flip side is that adding a connection to the variable does nothing on an install
+whose database already holds the list. `./scripts/sync-tool-servers.sh` appends the
+missing ones and restarts `open-webui`; the manual alternative is adding the server under
+**Admin Panel > Settings > External Tools**.
 
 ## Upgrading
 
