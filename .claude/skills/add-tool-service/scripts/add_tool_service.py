@@ -476,8 +476,13 @@ def cmd_add(args):
     if problems:
         print(f"{problems} problem(s) after writing; inspect the diff above")
         return 1
-    print("done. next: write the service and Dockerfile in "
-          f"{svc}/, add check_{args.name}_proxy to scripts/health-check.sh, update README.md")
+    todo = []
+    if not (REPO / svc / f"{args.name}_service.py").exists():
+        todo.append(f"write {svc}/{args.name}_service.py and {svc}/Dockerfile")
+    if f"check_{args.name}_proxy" not in HEALTH.read_text():
+        todo.append(f"add check_{args.name}_proxy to scripts/health-check.sh and call it")
+    todo.append("update README.md")
+    print("done. next: " + "; ".join(todo))
     return 0
 
 
