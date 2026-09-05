@@ -19,7 +19,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 # Containers that must be running. Add each new tool service here.
-CONTAINERS=(open-webui ollama weather-proxy)
+CONTAINERS=(open-webui ollama weather-proxy currency-proxy)
 
 failures=0
 section_no=0
@@ -181,6 +181,36 @@ except Exception:
     esac
 }
 
+check_currency_proxy() {
+    section "currency-proxy: OpenAPI spec"
+    check_spec currency-proxy 5006 /convert post
+
+    section "currency-proxy: stored connection"
+    check_connection http://currency-proxy:5006
+
+    section "currency-proxy: live conversion"
+    local result
+    result=$(docker exec open-webui sh -c \
+        "curl -s -X POST http://currency-proxy:5006/convert -H 'Content-Type: application/json' -d '{\"amount\":100,\"from_currency\":\"USD\",\"to_currency\":\"EUR\"}'" 2>/dev/null \
+        | docker exec -i open-webui python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    if 'error' in d:
+        print('ERROR:' + str(d['error'])[:80])
+    else:
+        print(str(d['converted_amount']) + ' EUR on ' + str(d['date']))
+except Exception:
+    print('ERROR:unparseable response')
+" 2>/dev/null || true)
+    case "$result" in
+        ERROR:*) fail "live call failed: ${result#ERROR:}"
+                 note "Frankfurter needs no key; a failure usually means no outbound internet from the container" ;;
+        '')      fail "live call returned no usable result" ;;
+        *)       ok "live call: 100 USD -> ${result}" ;;
+    esac
+}
+
 # --------------------------------------------------------------------------
 # Main flow
 # --------------------------------------------------------------------------
@@ -218,9 +248,10 @@ else
 fi
 
 check_weather_proxy
+check_currency_proxy
 
 section "Open WebUI resolves the tools"
-check_resolved get_weather
+check_resolved get_weather convert_currency
 
 echo
 if [ "$failures" -eq 0 ]; then

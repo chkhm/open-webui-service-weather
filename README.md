@@ -10,21 +10,29 @@ It describes itself with an OpenAPI document, which Open WebUI registers as an
 **external tool server** — that is the mechanism that makes `get_weather` available
 to the model.
 
+A second service, `currency-proxy`, does the same for
+[Frankfurter](https://frankfurter.dev), so the model can convert amounts between
+currencies at European Central Bank reference rates — *"How much is 100 US dollars in
+euros right now?"*.
+
 Ollama runs as its own service rather than bundled into the Open WebUI image, so the
 two can be pinned and upgraded independently.
 
 ```
   browser :12000
         |
-   +----v----------------+       GET /openapi.json      +------------------+
-   |     open-webui      |----------------------------->|                  |
-   |                     |                              |  weather-proxy   |
-   |                     |  POST /weather {city,state}  |    (Flask)       |
-   |                     |----------------------------->|                  |
-   +----------+----------+                              +---------+--------+
-              |                                                   |
-              | OLLAMA_BASE_URL                                   v
-              | http://ollama:11434                       OpenWeather API
+   +----v----------------+   GET /openapi.json    +------------------+   +------------------+
+   |     open-webui      |----------------------->|  weather-proxy   |   |  currency-proxy  |
+   |                     |   POST /weather        |    (Flask)       |   |    (Flask)       |
+   |                     |----------------------->|                  |   |                  |
+   |                     |   GET /openapi.json    +---------+--------+   +---------+--------+
+   |                     |-------------------------------------------------->|
+   |                     |   POST /convert                                   |
+   |                     |-------------------------------------------------->|
+   +----------+----------+                                 |                 |
+              |                                            v                 v
+              | OLLAMA_BASE_URL                    OpenWeather API      Frankfurter API
+              | http://ollama:11434
    +----------v----------+
    |       ollama        |  <- holds the GPU and the model store
    +---------------------+
@@ -80,12 +88,13 @@ lives in the `open-webui` volume.
 
 ## Enabling the tool in a chat
 
-Registering the tool server makes `get_weather` *available*; it does not switch it on.
+Registering a tool server makes its tool *available*; it does not switch it on.
 Open WebUI leaves external tools off until you enable them for a conversation, so a
 brand-new install will answer weather questions with something like *"I'm not able to
 pull real-time weather data"* even when everything below is configured correctly.
 
-Click the **wrench** icon under the message box and toggle `get_weather` on:
+Click the **wrench** icon under the message box and toggle the tool on — `get_weather`,
+`convert_currency`, or both:
 
 ![Enabling the get_weather tool from the wrench menu in the chat input](docs/enable-weather-tool.png)
 
@@ -128,25 +137,38 @@ Run the health check after any change to confirm the tool still works end to end
 ...
 6. weather-proxy: live forecast
   [ ok ] live call returned 40 forecast entries for Princeton, NJ
-7. Open WebUI resolves the tools
-  [ ok ] tools available to the model: get_weather
+...
+9. currency-proxy: live conversion
+  [ ok ] live call: 100 USD -> 86.04 EUR on 2026-09-04
+10. Open WebUI resolves the tools
+  [ ok ] tools available to the model: get_weather,convert_currency
 
 all checks passed
 ```
 
-## How the weather tool is wired up
+## How the tools are wired up
 
-Two pieces have to line up, and both are in this repository:
+Two pieces have to line up for every service, and both are in this repository:
 
-1. **The proxy publishes a spec.** `weather-proxy/weather_service.py` serves an OpenAPI
-   3.1 document at `GET /openapi.json` describing its `POST /weather` endpoint. The tool
-   name the model sees comes from that document's `operationId`.
+1. **Each proxy publishes a spec.** `weather-proxy/weather_service.py` and
+   `currency-proxy/currency_service.py` each serve an OpenAPI 3.1 document at
+   `GET /openapi.json` describing their endpoint. The tool name the model sees comes
+   from that document's `operationId`.
 
-2. **Compose registers the connection.** `docker-compose.yml` passes
-   `TOOL_SERVER_CONNECTIONS` to Open WebUI, pointing at `http://weather-proxy:5005` with
-   path `openapi.json`. This is a supported feature, though it is absent from the
+2. **Compose registers the connections.** `docker-compose.yml` passes
+   `TOOL_SERVER_CONNECTIONS` to Open WebUI, one entry per service, each pointing at the
+   service root with path `openapi.json`. This is a supported feature, though it is
+   absent from the
    [environment variable reference](https://docs.openwebui.com/reference/env-configuration/)
    — see [open-webui#15574](https://github.com/open-webui/open-webui/issues/15574).
+
+| Service | Port | Tool | Upstream | Key |
+|---|---|---|---|---|
+| `weather-proxy` | 5005 | `get_weather` | OpenWeather | `OWM_API_KEY` |
+| `currency-proxy` | 5006 | `convert_currency` | Frankfurter (ECB rates) | none |
+
+New services are added with the `/add-tool-service` skill in `.claude/skills/`, which
+applies all of the conventions below.
 
 Open WebUI resolves those as: spec URL = connection URL + `path`, and the call URL =
 connection URL + the path key from the spec. The spec's own `servers` block is ignored.
@@ -266,6 +288,16 @@ attribution. The proxy returns that data essentially verbatim, so anything you b
 top of it should carry the same credit; the OpenAPI document the proxy serves states it
 in its `info` block.
 
+### Currency data
+
+**Exchange rates from the [European Central Bank](https://www.ecb.europa.eu), served by
+[Frankfurter](https://frankfurter.dev).**
+
+Frankfurter is an open-source, keyless API for the ECB's daily reference rates; the
+rates themselves are published by the ECB for free reuse. The proxy names both in the
+`info` block of its OpenAPI document and returns the reference date with every
+conversion, since these are daily rates rather than live market prices.
+
 ## Troubleshooting
 
 **The model says it cannot look up weather.** The tool server did not load. Check the
@@ -273,6 +305,12 @@ spec is reachable from inside the network:
 
 ```bash
 docker exec open-webui curl -s -o /dev/null -w "%{http_code}\n" http://weather-proxy:5005/openapi.json
+```
+
+The same check for the currency service:
+
+```bash
+docker exec open-webui curl -s -o /dev/null -w "%{http_code}\n" http://currency-proxy:5006/openapi.json
 ```
 
 `200` is expected. A `404` usually means the stored connection points at

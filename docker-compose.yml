@@ -56,10 +56,17 @@ services:
         "config": {"enable": true, "function_name_filter_list": "",
         "access_grants": []},
         "info": {"id": "", "name": "get_weather",
-        "description": "Retrieve short term weather forecast"}}]
+        "description": "Retrieve short term weather forecast"}},
+        {"url": "http://currency-proxy:5006", "path": "openapi.json",
+        "type": "openapi", "auth_type": "bearer", "headers": null, "key": "",
+        "spec_type": "url", "spec": "", "config": {"enable": true,
+        "function_name_filter_list": "", "access_grants": []}, "info": {"id": "",
+        "name": "convert_currency",
+        "description": "Convert amounts between currencies at ECB reference rates"}}]
     depends_on:
       - weather-proxy
       - ollama
+      - currency-proxy
 
   weather-proxy:
     build: ./weather-proxy   # directory that holds the Dockerfile from §3.2
@@ -74,6 +81,18 @@ services:
       default:
         aliases:
           - weather-proxy
+
+  currency-proxy:
+    build: ./currency-proxy
+    container_name: currency-proxy
+    restart: unless-stopped
+    expose:
+      - "5006"
+    # Stable DNS name for the other services
+    networks:
+      default:
+        aliases:
+          - currency-proxy
 
 networks:
   default:
