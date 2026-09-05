@@ -307,7 +307,13 @@ def tracked_changes():
     return [l for l in out.splitlines() if not l.startswith("??")]
 
 
-def validate(name=None, port=None, operation_id=None):
+def validate(name=None, port=None, operation_id=None, own_files_expected=False):
+    """Check the repository, and a proposal if given.
+
+    own_files_expected: the proposal's directory and service file may already
+    exist (the skill writes the service before wiring it), so do not count them
+    as collisions.
+    """
     problems = 0
 
     def check(cond, good, bad):
@@ -361,13 +367,17 @@ def validate(name=None, port=None, operation_id=None):
             fail(f"{py.relative_to(REPO)} does not compile: {e.msg}")
             problems += 1
 
+    own_dir = f"{name}-proxy/" if name else None
     if name is not None:
         svc = f"{name}-proxy"
         check(bool(NAME_RE.match(name)), f"name '{name}' is well-formed",
               f"name '{name}' must be lower-case letters, digits and single hyphens")
         check(svc not in names, f"container name '{svc}' is free", f"container '{svc}' already exists")
-        check(not (REPO / svc).exists(), f"directory '{svc}/' does not exist yet",
-              f"directory '{svc}/' already exists")
+        if own_files_expected:
+            ok(f"directory '{svc}/' may already exist (service written first)")
+        else:
+            check(not (REPO / svc).exists(), f"directory '{svc}/' does not exist yet",
+                  f"directory '{svc}/' already exists")
         check(f"http://{svc}:{port}" not in urls, f"connection url for {svc} not yet stored",
               f"a connection for http://{svc}:{port} already exists")
     if port is not None:
@@ -375,7 +385,9 @@ def validate(name=None, port=None, operation_id=None):
     if operation_id is not None:
         check(bool(OPID_RE.match(operation_id)), f"operationId '{operation_id}' is snake_case",
               f"operationId '{operation_id}' must be snake_case")
-        check(operation_id not in ids, f"operationId '{operation_id}' is free",
+        # The proposal's own service file legitimately declares the id.
+        others = [o for o, f in ops if not (own_files_expected and own_dir and f.startswith(own_dir))]
+        check(operation_id not in others, f"operationId '{operation_id}' is free",
               f"operationId '{operation_id}' already exists")
 
     return problems
@@ -406,7 +418,7 @@ def cmd_add(args):
             return 1
 
     print("preflight")
-    if validate(args.name, args.port, args.operation_id):
+    if validate(args.name, args.port, args.operation_id, own_files_expected=True):
         print("\nnot adding: fix the problems above first")
         return 1
 

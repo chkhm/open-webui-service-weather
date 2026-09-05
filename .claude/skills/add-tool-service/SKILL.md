@@ -2,7 +2,7 @@
 name: add-tool-service
 description: This skill should be used when the user asks to "add a tool service", "add a new tool to Open WebUI", "scaffold a proxy for an API", "make <some API> available to the model", or invokes /add-tool-service. It adds a new HTTP service to this repository's Open WebUI docker-compose setup so that the model can call it as a tool, following the same conventions as weather-proxy.
 argument-hint: <service-name> [one-line purpose]
-allowed-tools: Read, Write, Edit, Bash, AskUserQuestion, WebFetch
+allowed-tools: Read Write Edit Bash AskUserQuestion WebFetch
 version: 1.0.0
 ---
 
