@@ -84,6 +84,11 @@ The harness does not exercise the UI. Ask the user to open a chat, click the wre
 under the message box, switch the new tool on, and ask the question. The tool is listed
 but **off** until they do that; see `docs/enable-weather-tool.png`.
 
+If the harness passes but a small model declines in the chat window, the cause is Open
+WebUI's builtin tools (35 in 0.11.3) crowding out the one the user selected. Untick
+*Builtin Tools* in that model's capabilities (Admin Panel > Models); the README's
+troubleshooting section describes it.
+
 ## Removing a service
 
 Reverting the files is not enough: the stored connection stays in `webui.db`, so Open

@@ -143,6 +143,10 @@ answer from the returned forecast.
 This is per conversation. To have it on by default, create an entry for your model under
 **Workspace > Models** and attach the tool there.
 
+A small local model (a 3B `llama3.2`, say) may still decline even with the tool on: Open
+WebUI adds dozens of builtin tools to the request, and small models cannot pick one out
+of that many. Untick *Builtin Tools* in that model's capabilities; see *Troubleshooting*.
+
 ## Convenience scripts
 
 | Script | What it does |
