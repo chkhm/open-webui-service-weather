@@ -54,7 +54,7 @@ failure that produced no error anywhere: the model just said it could not help.
 
 ## README
 
-- [ ] Architecture diagram has a box for the service.
+- [ ] Architecture diagram has a node, edges and a class assignment for the service.
 - [ ] Wiring section covers the service; troubleshooting has its `curl` line.
 - [ ] `### <Source> data` attribution block under *License and attribution*.
 - [ ] Key sections updated only if there is a secret.

@@ -18,25 +18,37 @@ euros right now?"*.
 Ollama runs as its own service rather than bundled into the Open WebUI image, so the
 two can be pinned and upgraded independently.
 
+```mermaid
+flowchart LR
+    browser([browser :12000])
+
+    subgraph stack [docker compose stack]
+        direction LR
+        owui[open-webui]
+        ollama[(ollama - GPU and model store)]
+        weather[weather-proxy :5005]
+        currency[currency-proxy :5006]
+    end
+
+    owm[OpenWeather API]
+    frank[Frankfurter API]
+
+    browser --> owui
+    owui -- OLLAMA_BASE_URL --> ollama
+    owui -- "GET /openapi.json, POST /weather" --> weather --> owm
+    owui -- "GET /openapi.json, POST /convert" --> currency --> frank
+
+    classDef ui fill:#dbeafe,stroke:#1d4ed8,color:#111
+    classDef model fill:#ede9fe,stroke:#6d28d9,color:#111
+    classDef proxy fill:#dcfce7,stroke:#15803d,color:#111
+    classDef upstream fill:#fef3c7,stroke:#b45309,color:#111
+    class owui ui
+    class ollama model
+    class weather,currency proxy
+    class owm,frank upstream
 ```
-  browser :12000
-        |
-   +----v----------------+   GET /openapi.json    +------------------+   +------------------+
-   |     open-webui      |----------------------->|  weather-proxy   |   |  currency-proxy  |
-   |                     |   POST /weather        |    (Flask)       |   |    (Flask)       |
-   |                     |----------------------->|                  |   |                  |
-   |                     |   GET /openapi.json    +---------+--------+   +---------+--------+
-   |                     |-------------------------------------------------->|
-   |                     |   POST /convert                                   |
-   |                     |-------------------------------------------------->|
-   +----------+----------+                                 |                 |
-              |                                            v                 v
-              | OLLAMA_BASE_URL                    OpenWeather API      Frankfurter API
-              | http://ollama:11434
-   +----------v----------+
-   |       ollama        |  <- holds the GPU and the model store
-   +---------------------+
-```
+
+*Blue: Open WebUI · violet: model server · green: tool proxies · amber: external APIs.*
 
 ## Requirements
 

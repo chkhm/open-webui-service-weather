@@ -79,7 +79,7 @@ python3 "${CLAUDE_SKILL_DIR}/scripts/add_tool_service.py" add \
    `scripts/health-check.sh` after `check_weather_proxy`, fill in the live call, call it
    in the main flow after the weather call, and add the `operationId` to the
    `check_resolved` line.
-4. **README.** Use `assets/readme-snippets.md`: a box in the architecture diagram, one
+4. **README.** Use `assets/readme-snippets.md`: a node and edges in the architecture diagram, one
    sentence in the intro, the wiring section generalised to cover all services, a
    `### <Source> data` attribution block under *License and attribution*, a
    troubleshooting `curl` line, and, only if there is a secret, the key sections.
