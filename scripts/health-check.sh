@@ -22,13 +22,17 @@ cd "$(dirname "$0")/.."
 # instead of reporting healthy containers as "not running".
 if ! docker info >/dev/null 2>&1; then
     echo "cannot reach the Docker daemon on $(hostname)" >&2
-    echo "run this on the machine hosting the stack, e.g.:" >&2
-    echo "  ssh spark01 'cd ~/git/open-webui-service-weather && ./scripts/health-check.sh'" >&2
+    echo "run this on the machine that hosts the stack" >&2
     exit 1
 fi
 
-# Containers that must be running. Add each new tool service here.
-CONTAINERS=(open-webui ollama weather-proxy currency-proxy)
+# Containers that must be running. Add each new tool service here. The ollama
+# container is only expected when the gpu profile is active (compose reads
+# COMPOSE_PROFILES from .env); with a native Ollama there is none.
+CONTAINERS=(open-webui weather-proxy currency-proxy)
+if docker compose config --services 2>/dev/null | grep -qx ollama; then
+    CONTAINERS+=(ollama)
+fi
 
 failures=0
 section_no=0
@@ -240,20 +244,29 @@ if [ "$failures" -ne 0 ]; then
 fi
 
 section "model server"
-ver=$(docker exec open-webui curl -s --max-time 10 http://ollama:11434/api/version 2>/dev/null \
+# Probe whatever open-webui itself is configured to use, from inside open-webui,
+# so a native Ollama and the container are checked the same way.
+ollama_url=$(docker exec open-webui printenv OLLAMA_BASE_URL 2>/dev/null || true)
+ollama_url=${ollama_url:-http://ollama:11434}
+ver=$(docker exec open-webui curl -s --max-time 10 "${ollama_url}/api/version" 2>/dev/null \
       | docker exec -i open-webui python3 -c 'import sys,json; print(json.load(sys.stdin)["version"])' 2>/dev/null || true)
 if [ -n "$ver" ]; then
-    ok "open-webui can reach ollama (version $ver)"
-    models=$(docker exec ollama ollama list 2>/dev/null | tail -n +2 | awk '{print $1}' | paste -sd, -)
+    ok "open-webui reaches ollama at ${ollama_url} (version $ver)"
+    models=$(docker exec open-webui curl -s --max-time 10 "${ollama_url}/api/tags" 2>/dev/null \
+        | docker exec -i open-webui python3 -c 'import sys,json; print(",".join(m["name"] for m in json.load(sys.stdin).get("models",[])))' 2>/dev/null || true)
     if [ -n "$models" ]; then
         ok "models available: $models"
     else
         fail "ollama is reachable but has no models"
-        note "pull one with: docker exec ollama ollama pull <model>"
+        note "pull one with: ollama pull <model> (docker exec ollama ollama pull <model> under the gpu profile)"
     fi
 else
-    fail "open-webui cannot reach ollama at http://ollama:11434"
-    note "check OLLAMA_BASE_URL and that the ollama service is on the same network"
+    fail "open-webui cannot reach the model server at ${ollama_url}"
+    if [ "$ollama_url" = "http://ollama:11434" ] && [ "$(docker inspect -f '{{.State.Running}}' ollama 2>/dev/null)" != "true" ]; then
+        note "no ollama container is running: set COMPOSE_PROFILES=gpu in .env, or point OLLAMA_BASE_URL at a native Ollama"
+    else
+        note "check OLLAMA_BASE_URL in .env; for a native Ollama on this host use http://host.docker.internal:11434"
+    fi
 fi
 
 check_weather_proxy

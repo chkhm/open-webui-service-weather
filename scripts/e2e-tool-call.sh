@@ -11,7 +11,7 @@
 # Options:
 #   --question TEXT   the user message (required)
 #   --expect TOOL     fail unless the model called this tool (repeatable)
-#   --model NAME      Ollama model to use (default: gpt-oss:120b)
+#   --model NAME      Ollama model to use (default: E2E_MODEL from .env, else gpt-oss:120b)
 #
 # Resolves every stored tool-server connection with Open WebUI's own code,
 # offers ALL of their tools to the model through Ollama's chat API, executes
@@ -33,12 +33,12 @@ cd "$(dirname "$0")/.."
 # instead of reporting healthy containers as "not running".
 if ! docker info >/dev/null 2>&1; then
     echo "cannot reach the Docker daemon on $(hostname)" >&2
-    echo "run this on the machine hosting the stack, e.g.:" >&2
-    echo "  ssh spark01 'cd ~/git/open-webui-service-weather && ./scripts/e2e-tool-call.sh'" >&2
+    echo "run this on the machine that hosts the stack" >&2
     exit 1
 fi
 
-model="gpt-oss:120b"
+model=$(grep -E '^E2E_MODEL=' .env 2>/dev/null | tail -1 | cut -d= -f2-)
+model=${model:-gpt-oss:120b}
 question=""
 expect=""
 

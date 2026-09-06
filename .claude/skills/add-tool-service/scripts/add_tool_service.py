@@ -224,16 +224,28 @@ def service_bounds(lines, service):
 
 
 def add_depends_on(lines, svc):
+    """Append the service to open-webui's depends_on, in whichever form it uses.
+
+    Short form:  `      - name`
+    Long form:   `      name:` followed by `        condition: ...` (and possibly
+                 `required: false` for optional services like ollama).
+    """
     start, end = service_bounds(lines, "open-webui")
     dep = next((i for i in range(start, end) if lines[i].rstrip() == "    depends_on:"), None)
     if dep is None:
         raise Fail("open-webui has no 'depends_on:' list")
+    # The block runs until a blank line or the next key at the service level.
     j = dep + 1
-    while j < end and lines[j].startswith("      - "):
-        if lines[j].strip() == f"- {svc}":
-            return lines
+    while j < end and lines[j].strip() and (len(lines[j]) - len(lines[j].lstrip())) > 4:
         j += 1
-    return lines[:j] + [f"      - {svc}"] + lines[j:]
+    block = [l.strip() for l in lines[dep + 1:j]]
+    if any(l.startswith("- ") for l in block):
+        if f"- {svc}" in block:
+            return lines
+        return lines[:j] + [f"      - {svc}"] + lines[j:]
+    if f"{svc}:" in block:
+        return lines
+    return lines[:j] + [f"      {svc}:", "        condition: service_started"] + lines[j:]
 
 
 # --------------------------------------------------------------------------

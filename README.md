@@ -25,7 +25,7 @@ flowchart LR
     subgraph stack [docker compose stack]
         direction LR
         owui[open-webui]
-        ollama[(ollama - GPU and model store)]
+        ollama[(ollama - container under the gpu profile, or native)]
         weather[weather-proxy :5005]
         currency[currency-proxy :5006]
     end
@@ -53,9 +53,8 @@ flowchart LR
 ## Requirements
 
 - Docker with Compose v2
-- An NVIDIA GPU plus the NVIDIA Container Toolkit — `docker-compose.yml` reserves all
-  GPUs for the `ollama` service, which is what actually runs the model. Remove that
-  `deploy:` block to run CPU-only.
+- Somewhere for the model to run: either an NVIDIA GPU with the NVIDIA Container
+  Toolkit, or Ollama installed natively on the host. See *Where the model runs*.
 - An OpenWeather API key (below)
 
 ## Getting an OpenWeather API key
@@ -85,6 +84,24 @@ OWM_API_KEY=your_key_here
 looks for it automatically. It is gitignored — do not commit your key. Nothing else
 needs configuring.
 
+## Where the model runs
+
+Open WebUI needs an Ollama to talk to. Pick one of two setups in `.env`:
+
+| Setup | `.env` | What runs |
+|---|---|---|
+| A Linux box with an NVIDIA GPU | `COMPOSE_PROFILES=gpu` | the `ollama` container, with the GPU and the `open-webui-ollama` model volume |
+| Ollama installed natively on the host (a Mac, for instance) | `OLLAMA_BASE_URL=http://host.docker.internal:11434` | no `ollama` container; Open WebUI reaches the host's Ollama |
+
+Set exactly one. With neither, Open WebUI looks for a container that is not running,
+and the health check says so. Docker Desktop cannot pass a GPU to a container on macOS,
+which is why the second setup exists; a Linux host without a GPU can still use the
+first, on the CPU, by removing the `deploy:` block from `docker-compose.yml`.
+
+On macOS with Docker Desktop this works out of the box: `host.docker.internal` reaches
+the host's loopback, so Ollama's default binding is enough. On a Linux host, Ollama must
+listen on all interfaces for the container to reach it (`OLLAMA_HOST=0.0.0.0`).
+
 ## Bringing it up and down
 
 ```bash
@@ -93,6 +110,9 @@ docker compose ps             # status
 docker compose logs -f        # follow logs
 docker compose down           # stop and remove containers, keep all data
 ```
+
+Which services start follows `.env`: the `ollama` container only under
+`COMPOSE_PROFILES=gpu` (see *Where the model runs*).
 
 Open WebUI is then at <http://localhost:12000>, or `http://<host>:12000` if you run it
 on another machine. On first start it asks you to create an admin account; that account
@@ -201,7 +221,9 @@ missing ones and restarts `open-webui`; the manual alternative is adding the ser
 ## Upgrading
 
 Both `open-webui` and `ollama` are pinned by digest in `docker-compose.yml`, so
-`docker compose pull` will not quietly move you to a new version of either.
+`docker compose pull` will not quietly move you to a new version of either. (The
+`ollama` pin only matters under the `gpu` profile; a native Ollama is upgraded however
+you installed it.)
 
 Running Ollama as a separate service is what makes the two upgrades independent. With
 the bundled `:ollama` image they shipped as one unit, so taking an Ollama fix meant
@@ -266,7 +288,7 @@ the `open-webui-ollama` volume back onto `open-webui`, and dropping `OLLAMA_BASE
 | Volume | Contents | Lost if deleted |
 |---|---|---|
 | `open-webui` | `webui.db`, uploads, vector store — mounted by the `open-webui` service | Admin account, chat history, settings. The tool-server connection is reseeded from `TOOL_SERVER_CONNECTIONS` on next start. |
-| `open-webui-ollama` | Downloaded models — mounted by the `ollama` service at `/root/.ollama` | Every model, re-downloaded on next pull |
+| `open-webui-ollama` | Downloaded models — mounted by the `ollama` service at `/root/.ollama` (`gpu` profile only) | Every model, re-downloaded on next pull |
 
 Both are pinned to those exact names in `docker-compose.yml`. Without the pin, Compose
 prefixes volume names with the project directory name, and the stack silently comes up

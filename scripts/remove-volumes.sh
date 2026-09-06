@@ -13,7 +13,8 @@
 # create your account again.
 #
 # The model volume is tens of gigabytes and everything in it must be downloaded
-# again, so it is only touched when you explicitly ask.
+# again, so it is only touched when you explicitly ask. It only exists when the
+# stack runs the gpu profile; with a native Ollama there is nothing to remove.
 
 set -euo pipefail
 

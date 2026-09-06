@@ -17,7 +17,8 @@ that the keyless `currency-proxy` example does not.
   seen until the next restart.
 - Work on a clean tree, on a branch. The skill's helper refuses to run if tracked files
   are modified, precisely so that it never applies its edits twice.
-- Have the deployment host ready (`ssh spark01` here) with the stack running.
+- Have the stack running where you deploy. In this run that is `spark01`, the author's
+  remote host; on a single machine the deploy step is simply `docker compose up -d --build`.
 
 ```bash
 git checkout -b try-countries

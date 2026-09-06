@@ -37,8 +37,8 @@ Ask everything in one `AskUserQuestion` round, then confirm the summary before w
   update cadence, units, supported codes.
 - **Data licence and attribution** required by the upstream.
 - **Port**: default is the highest `500x` in `docker-compose.yml` plus one.
-- **Deploy target** (default `spark01`, path `~/git/open-webui-service-weather`) and
-  whether to deploy and verify now.
+- **Deploy target**: this machine (default), or a remote host reachable by ssh — then
+  its name and the repository path there — and whether to deploy and verify now.
 
 ### 2. Preflight
 

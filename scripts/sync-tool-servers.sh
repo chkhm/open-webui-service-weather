@@ -32,8 +32,7 @@ cd "$(dirname "$0")/.."
 # instead of reporting healthy containers as "not running".
 if ! docker info >/dev/null 2>&1; then
     echo "cannot reach the Docker daemon on $(hostname)" >&2
-    echo "run this on the machine hosting the stack, e.g.:" >&2
-    echo "  ssh spark01 'cd ~/git/open-webui-service-weather && ./scripts/sync-tool-servers.sh'" >&2
+    echo "run this on the machine that hosts the stack" >&2
     exit 1
 fi
 

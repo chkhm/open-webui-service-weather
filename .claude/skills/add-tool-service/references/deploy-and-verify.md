@@ -1,101 +1,93 @@
 # Deploy and verify
 
-The deployment target is a separate machine (default `spark01`, repository at
-`~/git/open-webui-service-weather`). The project convention is: edit here, sync there,
-verify, then commit here on a topic branch and let the user merge, push and pull. Do
-not commit on the target, and leave its working tree in a state that `git pull` will
-accept.
+Two situations, decided at intake. In both, the user merges and pushes; do not commit on
+their behalf, and never copy `.env` anywhere — it holds the real secrets.
 
-## 1. Sync the working tree
+## Local: the stack runs on this machine
 
-Copy only what changed. Never copy `.git` or `.env`; the target's `.env` holds the real
-secrets and is the only copy.
+The common case. Four commands, all from the repository root:
 
 ```bash
-rsync -av --exclude .git --exclude .env --exclude '__pycache__' \
-    ./ spark01:~/git/open-webui-service-weather/
+docker compose up -d --build          # recreates open-webui: its environment changed
+./scripts/sync-tool-servers.sh        # existing install: write the new connection to webui.db
+./scripts/health-check.sh             # every section green; the last line names the new tool
+./scripts/e2e-tool-call.sh --expect <operationId> --question "<a question that demands live data>"
 ```
 
-`scp` of individual files is fine for small changes.
+Then the chat window (step 5 below).
 
-## 2. Build and start
+## Remote: the stack runs on a host reachable by ssh
+
+Set `HOST` and `REPO` to what the user gave at intake (for example `spark01` and
+`~/git/open-webui-service-weather`).
+
+### 1. Sync the working tree
+
+Copy only what changed. Never copy `.git` or `.env`.
 
 ```bash
-ssh spark01 'cd ~/git/open-webui-service-weather && docker compose up -d --build'
+rsync -av --exclude .git --exclude .env --exclude '__pycache__' ./ "$HOST:$REPO/"
+```
+
+### 2. Build and start
+
+```bash
+ssh "$HOST" "cd $REPO && docker compose up -d --build"
 ```
 
 `open-webui` is recreated because its environment changed; the data volume persists.
 Wait for it to report healthy (`docker compose ps`).
 
-Check the startup line. On an existing install it still reports the **old** count —
-that is the stored connections winning over the environment variable, and it is
-expected:
+### 3. Register the connection on an existing install
+
+On an existing install the startup line still reports the **old** count — the stored
+connections winning over the environment variable — and that is expected:
 
 ```bash
-ssh spark01 'docker logs open-webui 2>&1 | grep -E "Initialized [0-9]+ tool server" | tail -1'
+ssh "$HOST" "docker logs open-webui 2>&1 | grep -E 'Initialized [0-9]+ tool server' | tail -1"
+ssh "$HOST" "cd $REPO && ./scripts/sync-tool-servers.sh"
 ```
 
-## 3. Register the connection on an existing install
-
-```bash
-ssh spark01 'cd ~/git/open-webui-service-weather && ./scripts/sync-tool-servers.sh'
-```
-
-It appends the missing entry, restarts `open-webui`, and prints the new
+The script appends the missing entry, restarts `open-webui`, and prints the new
 `Initialized N tool server(s)` line. A fresh volume needs none of this.
 
-## 4. Health check
+### 4. Health check and end to end
 
 ```bash
-ssh spark01 'cd ~/git/open-webui-service-weather && ./scripts/health-check.sh'
+ssh "$HOST" "cd $REPO && ./scripts/health-check.sh"
+ssh "$HOST" "cd $REPO && ./scripts/e2e-tool-call.sh --expect <operationId> --question '<question>'"
 ```
 
-Every section green, and the final *resolves the tools* line must name the new
-`operationId`. Fix and repeat before going further.
+Every section green, and the *resolves the tools* line must name the new
+`operationId`. Phrase the question so answering from memory is not an option ("right
+now", "this weekend", "today's"). The harness offers **every** registered tool, so it
+also tests that the model picks the right one. Re-run it for an existing tool to prove
+nothing regressed. The first call loads the model; allow a minute or two.
 
-## 5. End to end with the model
+### 6. Leave the remote tree clean
 
-```bash
-ssh spark01 'cd ~/git/open-webui-service-weather && ./scripts/e2e-tool-call.sh \
-    --expect <operationId> --question "<a question that demands live data>"'
-```
-
-Phrase the question so that answering from memory is not an option ("right now",
-"this weekend", "today's"). The harness offers **every** registered tool, so this also
-tests that the model picks the right one. Then re-run it for an existing tool to prove
-nothing regressed:
-
-```bash
-ssh spark01 'cd ~/git/open-webui-service-weather && ./scripts/e2e-tool-call.sh \
-    --expect get_weather --question "What will the weather be this weekend in Princeton, NJ?"'
-```
-
-This takes a minute or two: the first call loads the model.
-
-## 6. The chat window
-
-The harness does not exercise the UI. Ask the user to open a chat, click the wrench
-icon under the message box, switch the new tool on, and ask the question. The tool is
-listed but **off** until they do that; see `docs/enable-weather-tool.png`.
-
-## 7. Leave the target clean
-
-After verification, restore the target's tracked files and remove synced untracked
+After verification, restore the remote's tracked files and remove synced untracked
 ones so the user's later `git pull` is clean. The running containers keep the tested
-build; the checked-out files will match again after the pull.
+build; the checked-out files match again after the pull.
 
 ```bash
-ssh spark01 'cd ~/git/open-webui-service-weather && git checkout -- . && git clean -fd -- <new paths>'
+ssh "$HOST" "cd $REPO && git checkout -- . && git clean -fd -- <new paths>"
 ```
 
-Tell the user explicitly that until they pull, the target's compose file describes the
+Tell the user explicitly that until they pull, the remote's compose file describes the
 old stack while the containers run the new one, and that `docker compose up` there
 before pulling would roll back.
+
+## 5. The chat window (both situations)
+
+The harness does not exercise the UI. Ask the user to open a chat, click the wrench icon
+under the message box, switch the new tool on, and ask the question. The tool is listed
+but **off** until they do that; see `docs/enable-weather-tool.png`.
 
 ## Removing a service
 
 Reverting the files is not enough: the stored connection stays in `webui.db`, so Open
-WebUI keeps a dead server in its list. In this order, on the target:
+WebUI keeps a dead server in its list. In this order, where the stack runs:
 
 1. `./scripts/sync-tool-servers.sh --remove http://<name>-proxy:<port>` — before
    reverting, since the reverted script may predate the option. Removing an entry

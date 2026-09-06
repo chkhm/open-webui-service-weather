@@ -27,7 +27,7 @@ flowchart LR
     subgraph stack [docker compose stack]
         direction LR
         owui[open-webui]
-        ollama[(ollama - GPU and model store)]
+        ollama[(ollama - container under the gpu profile, or native)]
         weather[weather-proxy :5005]
         currency[currency-proxy :5006]
         countries[countries-proxy :5007]                                     %% +

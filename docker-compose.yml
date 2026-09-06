@@ -8,6 +8,10 @@ services:
     # linux/amd64 and linux/arm64.
     image: ollama/ollama@sha256:57d60e686821ea81a7748a3ec8141308c8b8f95b27105713954abf7a6529e700
     container_name: ollama
+    # Only started with COMPOSE_PROFILES=gpu in .env. Without it, Open WebUI
+    # expects a native Ollama on the host via OLLAMA_BASE_URL (see .env.example);
+    # Docker Desktop on macOS cannot pass a GPU to a container.
+    profiles: [gpu]
     restart: unless-stopped
     volumes:
       - open-webui-ollama:/root/.ollama
@@ -42,7 +46,9 @@ services:
     volumes:
       - open-webui:/app/backend/data
     environment:
-      - OLLAMA_BASE_URL=http://ollama:11434
+      # The container under the gpu profile by default; override in .env to reach
+      # a native Ollama, e.g. http://host.docker.internal:11434.
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
       # Registers the weather proxy as an external OpenAPI tool server. A
       # supported feature, though missing from the environment variable
       # reference (open-webui#15574). This seeds a fresh volume; Open WebUI
@@ -63,10 +69,19 @@ services:
         "function_name_filter_list": "", "access_grants": []}, "info": {"id": "",
         "name": "convert_currency",
         "description": "Convert amounts between currencies at ECB reference rates"}}]
+    # Lets a native Ollama be reached as host.docker.internal on Linux hosts too;
+    # Docker Desktop provides the name by itself.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
-      - weather-proxy
-      - ollama
-      - currency-proxy
+      weather-proxy:
+        condition: service_started
+      currency-proxy:
+        condition: service_started
+      # Optional: only present when the gpu profile is active.
+      ollama:
+        condition: service_started
+        required: false
 
   weather-proxy:
     build: ./weather-proxy   # directory that holds the Dockerfile from §3.2
