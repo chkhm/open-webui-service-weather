@@ -373,6 +373,17 @@ pinned version a fresh volume registers the tool server at startup — `Initiali
 server(s)` in `docker compose logs open-webui` confirms that — so treat this as a
 fallback rather than a required step.
 
+**The tool is switched on, yet a small model still says it cannot help.** In native
+function-calling mode Open WebUI adds its own *builtin* tools — timestamps, knowledge
+bases, chat search, memories, notes, tasks, automations, calendar — to every chat
+request: 35 of them in 0.11.3, on top of yours. A large model picks `get_weather` out of
+that list; a 3B model such as `llama3.2` gives up and answers that it cannot provide a
+forecast, even though the request carried the tool. Turn the builtin tools off for that
+model: **Admin Panel > Models**, edit the model, *Capabilities*, untick **Builtin Tools**,
+save. To see exactly which tools a request carried, set `GLOBAL_LOG_LEVEL=DEBUG` in
+`.env`, run `docker compose up -d`, and look for `tool_ids=` and `'tools':` in
+`docker compose logs open-webui`.
+
 **Forecasts fail for dates more than five days out.** That is the limit of the
 OpenWeather endpoint in use; the proxy returns 404 and the spec tells the model about
 the limit.

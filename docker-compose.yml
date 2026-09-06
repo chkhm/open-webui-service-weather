@@ -49,6 +49,8 @@ services:
       # The container under the gpu profile by default; override in .env to reach
       # a native Ollama, e.g. http://host.docker.internal:11434.
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+      # DEBUG shows, among much else, which tools each chat request carried.
+      - GLOBAL_LOG_LEVEL=${GLOBAL_LOG_LEVEL:-INFO}
       # Registers the weather proxy as an external OpenAPI tool server. A
       # supported feature, though missing from the environment variable
       # reference (open-webui#15574). This seeds a fresh volume; Open WebUI
