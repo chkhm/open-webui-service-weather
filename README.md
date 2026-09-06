@@ -168,7 +168,9 @@ Two pieces have to line up for every service, and both are in this repository:
 | `currency-proxy` | 5006 | `convert_currency` | Frankfurter (ECB rates) | none |
 
 New services are added with the `/add-tool-service` skill in `.claude/skills/`, which
-applies all of the conventions below.
+applies all of the conventions below. [docs/adding-a-service.md](docs/adding-a-service.md)
+walks through one real run of it, from intake to removal, including the surprise the
+preflight turned up.
 
 Open WebUI resolves those as: spec URL = connection URL + `path`, and the call URL =
 connection URL + the path key from the spec. The spec's own `servers` block is ignored.

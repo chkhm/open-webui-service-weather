@@ -91,3 +91,19 @@ ssh spark01 'cd ~/git/open-webui-service-weather && git checkout -- . && git cle
 Tell the user explicitly that until they pull, the target's compose file describes the
 old stack while the containers run the new one, and that `docker compose up` there
 before pulling would roll back.
+
+## Removing a service
+
+Reverting the files is not enough: the stored connection stays in `webui.db`, so Open
+WebUI keeps a dead server in its list. In this order, on the target:
+
+1. `./scripts/sync-tool-servers.sh --remove http://<name>-proxy:<port>` — before
+   reverting, since the reverted script may predate the option. Removing an entry
+   shifts the positional ids of every entry after it.
+2. Revert the files (`git checkout -- .`, `git clean -fd -- <name>-proxy`).
+3. `docker compose up -d --remove-orphans`, then
+   `docker image rm open-webui-service-weather-<name>-proxy`.
+4. `./scripts/health-check.sh` — the resolved-tools line must name only the remaining
+   tools.
+
+`docs/adding-a-service.md` shows a complete add-and-remove cycle.
