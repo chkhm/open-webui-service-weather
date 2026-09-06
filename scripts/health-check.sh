@@ -244,10 +244,20 @@ if [ "$failures" -ne 0 ]; then
 fi
 
 section "model server"
-# Probe whatever open-webui itself is configured to use, from inside open-webui,
-# so a native Ollama and the container are checked the same way.
-ollama_url=$(docker exec open-webui printenv OLLAMA_BASE_URL 2>/dev/null || true)
-ollama_url=${ollama_url:-http://ollama:11434}
+# Open WebUI uses the Ollama url STORED in its database, seeded from
+# OLLAMA_BASE_URL on first start and winning over it afterwards. Probe the
+# stored one from inside open-webui, so a native Ollama and the container are
+# checked the same way, and flag a mismatch with the environment: that is the
+# state a changed .env leaves behind.
+env_url=$(docker exec open-webui printenv OLLAMA_BASE_URL 2>/dev/null || true)
+env_url=${env_url:-http://ollama:11434}
+stored_url=$(docker exec open-webui python3 -c "
+import sqlite3, json
+c = sqlite3.connect('/app/backend/data/webui.db')
+r = list(c.execute(\"select value from config where key='ollama.base_urls'\"))
+v = (json.loads(r[0][0]) if isinstance(r[0][0], str) else r[0][0]) if r else []
+print(v[0] if v else '')" 2>/dev/null || true)
+ollama_url=${stored_url:-$env_url}
 ver=$(docker exec open-webui curl -s --max-time 10 "${ollama_url}/api/version" 2>/dev/null \
       | docker exec -i open-webui python3 -c 'import sys,json; print(json.load(sys.stdin)["version"])' 2>/dev/null || true)
 if [ -n "$ver" ]; then
@@ -267,6 +277,10 @@ else
     else
         note "check OLLAMA_BASE_URL in .env; for a native Ollama on this host use http://host.docker.internal:11434"
     fi
+fi
+if [ -n "$stored_url" ] && [ "$stored_url" != "$env_url" ]; then
+    fail "stored Ollama url ${stored_url} differs from OLLAMA_BASE_URL ${env_url}"
+    note "the stored value wins: run ./scripts/sync-tool-servers.sh, or edit it under Admin Panel > Settings > Connections"
 fi
 
 check_weather_proxy

@@ -102,6 +102,12 @@ On macOS with Docker Desktop this works out of the box: `host.docker.internal` r
 the host's loopback, so Ollama's default binding is enough. On a Linux host, Ollama must
 listen on all interfaces for the container to reach it (`OLLAMA_HOST=0.0.0.0`).
 
+Like the tool-server connections, `OLLAMA_BASE_URL` seeds a **fresh** database only;
+once stored, the stored value wins and the UI reports no models if it points at the
+wrong place. After changing it on an existing install, run
+`./scripts/sync-tool-servers.sh`, or edit the connection under
+**Admin Panel > Settings > Connections**. The health check flags the mismatch.
+
 ## Bringing it up and down
 
 ```bash
@@ -144,7 +150,7 @@ This is per conversation. To have it on by default, create an entry for your mod
 | `scripts/remove-containers.sh` | Removes the containers and network. Keeps all volumes, so nothing is lost. Equivalent to `docker compose down`, with a summary of what was preserved. |
 | `scripts/remove-volumes.sh` | **Destroys data.** Deletes the Open WebUI data volume after a typed confirmation. Pass `--with-models` to also delete the Ollama volume. Refuses to run while containers are up. |
 | `scripts/health-check.sh` | Verifies the whole chain: containers, model server reachability and available models, API key, OpenAPI spec, stored connection, tool resolution, and a live forecast. Exits non-zero if anything is broken. |
-| `scripts/sync-tool-servers.sh` | Appends any tool-server connection declared in `docker-compose.yml` that is not yet stored in Open WebUI's database, then restarts `open-webui`. Needed when adding a service to an existing install, because the stored connections win over the environment variable. `--dry-run` shows what would be added. |
+| `scripts/sync-tool-servers.sh` | Reconciles Open WebUI's stored config with `docker-compose.yml`: appends missing tool-server connections, replaces a stored Ollama url that differs from `OLLAMA_BASE_URL`, then restarts `open-webui`. Needed on an existing install, because stored values win over the environment. `--dry-run` shows what would change; `--remove URL` deletes a stored connection. |
 | `scripts/e2e-tool-call.sh` | Asks the real model a question with every registered tool on offer, executes the calls it makes, and reports them. `--expect <tool>` makes it fail unless that tool was called. Proves the model + spec + service chain end to end, short of the chat window itself. |
 
 The model volume is excluded by default because it is large — on the development
