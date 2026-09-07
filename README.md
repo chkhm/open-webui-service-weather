@@ -403,4 +403,6 @@ docker exec weather-proxy printenv OWM_API_KEY
 file, on the assumption that Open WebUI reads function definitions from the data volume.
 It does not — the only file it imports from that directory is `config.json`. The file
 was inert and has been removed; tools are registered through the mechanism described
-above.
+above. The chat that proposed it, the conversation this project started from, is kept in
+[docs/chat-weekend-weather.md](docs/chat-weekend-weather.md) (and as the original PDF export
+next to it) as a record of the starting point, not as instructions.
