@@ -24,8 +24,9 @@ Consequences:
   install. `scripts/sync-tool-servers.sh` appends missing entries to the stored list and
   restarts `open-webui`; the admin UI (Admin Panel > Settings > External Tools) is the
   manual alternative. The admin UI's save replaces the whole array.
-- The variable is a supported feature that is missing from the environment variable
-  reference (open-webui#15574).
+- The variable is documented in the environment variable reference
+  (https://docs.openwebui.com/reference/env-configuration/); the docs note that its JSON
+  structure may change as features are added.
 
 ## Connection entry anatomy
 

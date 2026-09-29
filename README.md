@@ -199,10 +199,8 @@ Two pieces have to line up for every service, and both are in this repository:
 
 2. **Compose registers the connections.** `docker-compose.yml` passes
    `TOOL_SERVER_CONNECTIONS` to Open WebUI, one entry per service, each pointing at the
-   service root with path `openapi.json`. This is a supported feature, though it is
-   absent from the
-   [environment variable reference](https://docs.openwebui.com/reference/env-configuration/)
-   — see [open-webui#15574](https://github.com/open-webui/open-webui/issues/15574).
+   service root with path `openapi.json`. The variable is described in Open WebUI's
+   [environment variable reference](https://docs.openwebui.com/reference/env-configuration/).
 
 | Service | Port | Tool | Upstream | Key |
 |---|---|---|---|---|
@@ -245,7 +243,7 @@ look up the weather rather than as an error:
 
 | Dependency | Status |
 |---|---|
-| `TOOL_SERVER_CONNECTIONS` | A supported feature, but undocumented, so unversioned in practice |
+| `TOOL_SERVER_CONNECTIONS` | Documented, but the docs note that its JSON structure may change as features are added |
 | Tool-server URL resolution (spec = URL + `path`; call = URL + the spec's path key) | Internal behaviour, established by reading the source |
 | The `tool_server.connections` key in `webui.db` | Internal storage layout |
 
