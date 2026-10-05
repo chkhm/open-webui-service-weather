@@ -8,7 +8,8 @@ version this project pins; Open WebUI never reads that file.** See the README's
 
 The text was recovered by OCR from the PDF export (`chat-weekend-weather.pdf`, which is
 authoritative) and lightly cleaned: code re-indented, tables reflowed, API keys are the
-model's own placeholders. Nothing was added.
+model's own placeholders. Nothing was added. In two places the PDF export lost the text
+in front of a code snippet; those gaps are marked *[text missing in the export]*.
 
 **Important Note: Do NOT follow these instructions. They only partially work, and serve as an input from where I started the exploration.**
 
@@ -433,7 +434,7 @@ If you don't see a function call, double-check:
 
 - `custom_functions.json` is correctly formatted (JSON array, no trailing commas).
 - The OpenWebUI container logs show "Loaded 1 function(s)".
-- The helper responds: `docker exec open-webui curl http://weather-proxy:5005/weather -d '{"city":"Princeton","state":"NJ"}' -H "Content-Type: application/json"`
+- *[text missing in the export]* `docker exec open-webui curl http://weather-proxy:5005/weather -d '{"city":"Princeton","state":"NJ"}' -H "Content-Type: application/json"`
 
 ### 7. Security & Maintenance Tips
 
@@ -512,7 +513,7 @@ docker compose up -d
 1. Get an OpenWeather API key.
 2. Create the tiny Flask helper (`weather_service.py`).
 3. Docker-ize it (or run it locally and expose port 5005).
-4. Add a function definition to `custom_functions.json` that points at `http://weather-proxy:5005/weather`.
+4. *[text missing in the export]* `http://weather-proxy:5005/weather`
 5. Add the helper as a service in your `docker-compose.yml` and pass the API key via env-var.
 6. Restart containers, then ask the LLM for the weather - OpenWebUI will automatically call the function and give you a readable forecast.
 
