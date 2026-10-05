@@ -169,10 +169,11 @@ Run the health check after any change to confirm the tool still works end to end
 ```
 1. containers
   [ ok ] open-webui is running
-  [ ok ] ollama is running
   [ ok ] weather-proxy is running
+  [ ok ] currency-proxy is running
+  [ ok ] ollama is running
 2. model server
-  [ ok ] open-webui can reach ollama (version 0.32.15)
+  [ ok ] open-webui reaches ollama at http://ollama:11434 (version 0.32.15)
   [ ok ] models available: gpt-oss:120b
 3. weather-proxy: OpenWeather credentials
   [ ok ] OWM_API_KEY is set in weather-proxy (32 characters)
@@ -181,7 +182,7 @@ Run the health check after any change to confirm the tool still works end to end
   [ ok ] live call returned 40 forecast entries for Princeton, NJ
 ...
 9. currency-proxy: live conversion
-  [ ok ] live call: 100 USD -> 86.04 EUR on 2026-09-04
+  [ ok ] live call: 100 USD -> 89.25 EUR on 2026-10-05
 10. Open WebUI resolves the tools
   [ ok ] tools available to the model: get_weather,convert_currency
 
