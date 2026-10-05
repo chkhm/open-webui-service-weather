@@ -5,6 +5,10 @@ weather service attached to it, so the chat model can answer questions like
 *"What will the weather be this weekend in Princeton, NJ?"* with real forecast data
 instead of declining.
 
+The story of building it, and the five ways a tool fails without an error message, is
+told in the article
+[From 15 Minutes to Three Days: Giving a Local LLM Real Tools in Open WebUI](https://medium.com/@christoph.kuhmuench_87227/from-15-minutes-to-three-days-giving-a-local-llm-real-tools-in-open-webui-8c3373eed0ff).
+
 The weather service is a Flask app that wraps [OpenWeather](https://openweathermap.org/).
 It describes itself with an OpenAPI document, which Open WebUI registers as an
 **external tool server** — that is the mechanism that makes `get_weather` available
